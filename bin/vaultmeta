@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SCRIPT_NAME="vaultmeta"
-VERSION="0.0.1-phase0"
+VERSION="0.0.2-phase0"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
