@@ -38,10 +38,10 @@ VAULTMETA_CONFIG=/path/to/vaultmeta.conf vaultmeta status
   Path to the root of your Obsidian vault.  
   If missing or not found, VaultMeta will prompt you.
 
-### Optional (with safe defaults / prompting)
+### Optional (safe defaults / prompting)
 
 - `OUTPUT_DIR=...`  
-  Where stable report notes are written.  
+  Where VaultMeta report notes are written.  
   If blank, VaultMeta will offer: `$VAULT_ROOT/30_REFERENCE/vaultmeta/`
 
 - `INCLUDE_HIDDEN=0|1`  
@@ -54,7 +54,7 @@ VAULTMETA_CONFIG=/path/to/vaultmeta.conf vaultmeta status
   Comma-separated filename globs to ignore (examples: `*.log,*.tmp`).
 
 - `TREE_MAX_DEPTH=N`  
-  Max traversal depth from `VAULT_ROOT`.
+  Max traversal depth for the **File Tree** report.
 
 - `FOLLOW_SYMLINKS=0|1`  
   Follow symlinks (uses `find -L`). Keep `0` unless you know you want this.
@@ -65,9 +65,36 @@ VAULTMETA_CONFIG=/path/to/vaultmeta.conf vaultmeta status
 
 ---
 
+## Phase 1 report settings
+
+- `CHANGES_HOURS=N`  
+  Recent Changes “window A” (default `24`).
+
+- `CHANGES_DAYS=N`  
+  Recent Changes “window B” (default `7`).
+
+- `LARGEST_TOP_N=N`  
+  Top N for Largest Files (default `50`).
+
+- `ATTACHMENT_TOP_N=N`  
+  Top N for Attachment Audit (default `50`).
+
+---
+
+## Termux report output location
+
+- `TERMUX_OUTPUT_DIR=...`  
+  Output directory inside your vault for `termux_packages.md`.  
+  Default:
+  `/storage/emulated/0/Documents/HeartloomVault/30_REFERENCE/termux-outputs/`
+
+Path resilience applies here too: if the directory is missing, VaultMeta will echo what’s missing, prompt for a new path, and continue.
+
+---
+
 ## Path resilience (non-negotiable)
 
-If `VAULT_ROOT` or `OUTPUT_DIR` can’t be found, VaultMeta will:
+If expected paths can’t be found, VaultMeta will:
 
 1) print what’s missing  
 2) prompt you for the updated path  

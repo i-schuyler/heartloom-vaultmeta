@@ -127,6 +127,10 @@ Run individually:
 ```sh
 vaultmeta tree
 vaultmeta dirs
+vaultmeta changes
+vaultmeta largest
+vaultmeta attachments
+vaultmeta termux-packages
 ```
 
 You should see “Wrote:” lines pointing at your configured `OUTPUT_DIR`.

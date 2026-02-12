@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# install.sh
 set -euo pipefail
 
 SCRIPT_NAME="install.sh"
@@ -142,8 +143,8 @@ install_shortcut_optional() {
 
   cat > "${SHORTCUT_PATH}" <<EOF
 #!/usr/bin/env bash
-set -euo pipefail
 # run-vaultmeta
+set -euo pipefail
 
 # Prefer installed command; fallback to repo-local if needed.
 if command -v vaultmeta >/dev/null 2>&1; then
