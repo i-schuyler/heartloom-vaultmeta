@@ -23,9 +23,9 @@ This file is the canonical docs index for `heartloom-vaultmeta`.
 - Free core remains complete for its stated purpose: **visibility + reporting**.
 - Paid scope adds comfort, automation, polish, and scale.
 - Paid scope does not remove basic trust/visibility capabilities from free core.
-- **Required before sponsor-gated paid alpha:** broken-link scan exists inside free core (tracked as a readiness gate, not claimed as shipped here).
+- **Required before sponsor-gated paid alpha:** broken-link scan/report exists inside free core as a trust/readiness feature.
 - **Flexible before sponsor-gated paid alpha:** orphan-notes reporting may land later without breaking the free-core boundary.
-- Broken-link report contract anchor: `REPORTS.md` (`VaultMeta - Broken Links.md`, contract locked before implementation).
+- Broken-link report implementation: `REPORTS.md` (`VaultMeta - Broken Links.md`, command: `vaultmeta broken-links`).
 
 ## Alpha-readiness posture (docs anchor)
 

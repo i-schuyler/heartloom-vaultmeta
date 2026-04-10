@@ -20,6 +20,7 @@ Generates stable notes (overwritten each run):
 **Phase 1**
 - `VaultMeta - Recent Changes.md`
 - `VaultMeta - Largest Files.md`
+- `VaultMeta - Broken Links.md`
 - `VaultMeta - Attachment Audit.md`
 - Termux report: `termux_packages.md` (written to your vault’s termux outputs directory)
 
@@ -36,6 +37,7 @@ Single entrypoint with subcommands:
 - `vaultmeta dirs` → directory blocks report (grouped with headings)
 - `vaultmeta changes` → recent-change digest report
 - `vaultmeta largest` → largest files report
+- `vaultmeta broken-links` → broken local links report
 - `vaultmeta attachments` → attachment audit report
 - `vaultmeta termux-packages` → termux packages report (writes into vault termux-outputs)
 - `vaultmeta status` → prints resolved config and effective settings (no file writes)
@@ -77,7 +79,7 @@ Docs:
 ## Free-core boundary for paid alpha
 
 - Free core remains **visibility + reporting**.
-- Broken-link scan is a required free-core readiness gate before sponsor-gated paid alpha (not declared shipped in this README).
+- Broken-link scan/report is part of free core and remains a required readiness gate before sponsor-gated paid alpha.
 - Orphan-notes reporting remains flexible and may land after paid alpha starts.
 - Paid alpha is additive: comfort, automation, polish, and scale, without taking away free-core trust features.
 

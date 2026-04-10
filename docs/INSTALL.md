@@ -4,7 +4,7 @@ This doc covers installing VaultMeta on **Termux (Android)** and **desktop shell
 
 VaultMeta installs a single command:
 
-- `vaultmeta` (subcommands: `tree`, `dirs`, `changes`, `largest`, `attachments`, `termux-packages`, `status`, `help`)
+- `vaultmeta` (subcommands: `tree`, `dirs`, `changes`, `largest`, `broken-links`, `attachments`, `termux-packages`, `status`, `help`)
 
 It generates **stable, overwrite-on-run** Markdown reports inside your vault.
 
@@ -40,6 +40,7 @@ Reports (overwritten each run):
 - `VaultMeta - Directory Blocks.md`
 - `VaultMeta - Recent Changes.md`
 - `VaultMeta - Largest Files.md`
+- `VaultMeta - Broken Links.md`
 - `VaultMeta - Attachment Audit.md`
 - `termux_packages.md` (written to `TERMUX_OUTPUT_DIR`)
 
@@ -133,6 +134,7 @@ vaultmeta tree
 vaultmeta dirs
 vaultmeta changes
 vaultmeta largest
+vaultmeta broken-links
 vaultmeta attachments
 vaultmeta termux-packages
 ```

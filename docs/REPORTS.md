@@ -56,7 +56,29 @@ Audits non-`.md` files:
 - totals by extension (count + total size)
 - top `ATTACHMENT_TOP_N` largest attachments
 
-### 6) termux_packages.md (Termux packages report)
+### 6) VaultMeta - Broken Links.md
+Conservative first-pass broken local-link report.
+
+In-scope link resolution:
+- Obsidian wiki links to local notes/files (including alias form such as `[[Note|Alias]]`)
+- Local Markdown links to vault-relative or note-relative local targets
+- Broken means unresolved local targets within the vault
+
+First-pass exclusions:
+- external URLs
+- heading and block-anchor validation
+- orphan-notes reporting
+- broad attachment integrity beyond missing local targets
+
+Minimum output structure:
+- summary counts
+- grouped entries by source note
+- each broken entry includes source note, link text/raw target, and unresolved target form
+
+Command:
+- `vaultmeta broken-links`
+
+### 7) termux_packages.md (Termux packages report)
 Writes to `TERMUX_OUTPUT_DIR` inside your vault.
 
 Includes:
@@ -65,33 +87,6 @@ Includes:
 - secondary view from `pkg list-installed` (if available)
 - repo/config anchors, apt sources, held packages
 - optional language ecosystem snapshots (Python/Node/Go/Rust if installed)
-
----
-
-## Broken-link scan contract anchor (required before sponsor-gated paid alpha)
-
-Status:
-- Required free-core trust/reporting contract before sponsor-gated paid alpha.
-- Contract-only in this docs slice; this section does not claim current implementation.
-
-Exact report filename:
-- `VaultMeta - Broken Links.md`
-
-First-pass in-scope link resolution:
-- Obsidian wiki links to local notes/files.
-- Local Markdown links to vault-relative or note-relative local targets.
-- Broken means an unresolved local target within the vault.
-
-First-pass exclusions:
-- External URLs.
-- Heading or block-anchor validation.
-- Orphan-notes reporting.
-- Broad attachment integrity beyond missing local targets.
-
-Minimum output contract:
-- Summary counts at top of report.
-- Broken-link entries grouped by source note.
-- Each broken entry includes source note, link text/raw target, and unresolved target form.
 
 ---
 
