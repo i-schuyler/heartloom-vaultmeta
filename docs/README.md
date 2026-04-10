@@ -20,9 +20,21 @@ This file is the canonical docs index for `heartloom-vaultmeta`.
 
 ## Free vs paid scope anchor
 
-- Free scope remains complete for its stated purpose: vault visibility + reporting.
-- Paid scope should add comfort, automation, polish, and scale.
-- Paid scope should not remove basic trust/visibility capabilities from free scope.
+- Free core remains complete for its stated purpose: **visibility + reporting**.
+- Paid scope adds comfort, automation, polish, and scale.
+- Paid scope does not remove basic trust/visibility capabilities from free core.
+- **Required before sponsor-gated paid alpha:** broken-link scan exists inside free core (tracked as a readiness gate, not claimed as shipped here).
+- **Flexible before sponsor-gated paid alpha:** orphan-notes reporting may land later without breaking the free-core boundary.
+
+## Alpha-readiness posture (docs anchor)
+
+- **Must be true before sponsor-gated paid alpha starts:**
+  - free core stays anchored to visibility + reporting
+  - broken-link scan is present as a free-core trust feature
+  - paid alpha positioning remains additive (comfort/automation/polish/scale)
+- **May still be incomplete when paid alpha starts:**
+  - orphan-notes reporting
+  - other non-trust polish items that do not remove free-core visibility/reporting value
 
 ## Current known gap
 
