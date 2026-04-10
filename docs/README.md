@@ -37,7 +37,7 @@ This file is the canonical docs index for `heartloom-vaultmeta`.
   - orphan-notes reporting
   - other non-trust polish items that do not remove free-core visibility/reporting value
 
-## Current known gap
+## Investigation note status
 
-- The `attachments` command has a confirmed bug in current reality and should be treated as a tracked defect, not intended behavior.
-- See investigation notes under `_investigation/` for concrete evidence snapshots when present.
+- Docs in `_investigation/` are time-bound evidence snapshots, not canonical current-state guarantees.
+- Treat merged canon docs (`README.md`, `REPORTS.md`, `INSTALL.md`, and this index) as current source of truth; use investigation notes for historical context.
