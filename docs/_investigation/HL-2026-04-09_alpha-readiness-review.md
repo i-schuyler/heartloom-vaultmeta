@@ -1,5 +1,12 @@
 # HL-2026-04-09 — VaultMeta alpha readiness review (Slice 9)
 
+## Supersession note (post-review)
+
+- This document remains a historical Slice 9 review snapshot.
+- Its `attachments`-defect references (`Known limitations not acceptable for alpha` and related recommendation bullets) were accurate at review time and are now superseded by later merged fixes.
+- Keep the body below intact for historical traceability.
+- The `termux_packages.md` disclosure/redaction caution remains relevant and current.
+
 ## Purpose / review scope
 
 This review checks current `heartloom-vaultmeta` repo reality against the locked paid-alpha gate and records a repo-local recommendation for whether sponsor-gated paid alpha should begin now.
