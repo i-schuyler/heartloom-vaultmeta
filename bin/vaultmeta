@@ -225,6 +225,126 @@ topdir_of_relpath() {
   echo "${top}"
 }
 
+normalize_rel_path() {
+  local input="${1:-}"
+  local -a parts=()
+  local -a stack=()
+  local part out
+
+  input="${input#./}"
+  IFS='/' read -r -a parts <<< "${input}"
+
+  for part in "${parts[@]}"; do
+    [[ -z "${part}" || "${part}" == "." ]] && continue
+    if [[ "${part}" == ".." ]]; then
+      if (( ${#stack[@]} > 0 )) && [[ "${stack[$(( ${#stack[@]} - 1 ))]}" != ".." ]]; then
+        unset 'stack[${#stack[@]}-1]'
+      else
+        stack+=("..")
+      fi
+      continue
+    fi
+    stack+=("${part}")
+  done
+
+  out=""
+  for part in "${stack[@]}"; do
+    if [[ -z "${out}" ]]; then
+      out="${part}"
+    else
+      out+="/${part}"
+    fi
+  done
+
+  echo "${out}"
+}
+
+path_has_extension() {
+  local name="${1##*/}"
+  [[ "${name}" == *.* && "${name}" != .* ]]
+}
+
+strip_link_suffixes() {
+  local target="${1:-}"
+  target="${target%%#*}"
+  target="${target%%\?*}"
+  echo "${target}"
+}
+
+is_external_target() {
+  local target="${1:-}"
+  [[ "${target}" =~ ^[A-Za-z][A-Za-z0-9+.-]*: ]] || [[ "${target}" == //* ]]
+}
+
+md_inline() {
+  local value="${1:-}"
+  value="${value//$'\n'/ }"
+  value="${value//$'\r'/ }"
+  printf '%s\n' "${value}"
+}
+
+extract_links_from_markdown() {
+  local file="$1"
+  awk '
+    {
+      line = $0
+      while (match(line, /\[\[[^\[\]]+\]\]/)) {
+        link_start = RSTART
+        link_len = RLENGTH
+        full = substr(line, RSTART, RLENGTH)
+        inner = substr(full, 3, length(full) - 4)
+        split(inner, parts, "|")
+        target = parts[1]
+        display = (parts[2] != "" ? parts[2] : parts[1])
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", target)
+        gsub(/^[[:space:]]+|[[:space:]]+$/, "", display)
+        gsub(/\t/, " ", target)
+        gsub(/\t/, " ", display)
+        if (target != "") {
+          printf "wiki\t%s\t%s\n", display, target
+        }
+        line = substr(line, link_start + link_len)
+      }
+
+      line = $0
+      while (match(line, /!?\[[^\[\]]*\]\([^()]*\)/)) {
+        link_start = RSTART
+        link_len = RLENGTH
+        full = substr(line, RSTART, RLENGTH)
+        raw = full
+        if (substr(raw, 1, 1) == "!") {
+          raw = substr(raw, 2)
+        }
+
+        splitpos = index(raw, "](")
+        if (splitpos > 0) {
+          text = substr(raw, 2, splitpos - 2)
+          inside = substr(raw, splitpos + 2, length(raw) - splitpos - 2)
+          target = inside
+
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", target)
+          if (substr(target, 1, 1) == "<" && index(target, ">") > 1) {
+            target = substr(target, 2, index(target, ">") - 2)
+          } else {
+            sub(/[[:space:]].*$/, "", target)
+          }
+
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", text)
+          gsub(/^[[:space:]]+|[[:space:]]+$/, "", target)
+          gsub(/\t/, " ", text)
+          gsub(/\t/, " ", target)
+
+          if (target != "") {
+            printf "md\t%s\t%s\n", text, target
+          }
+        }
+
+        line = substr(line, link_start + link_len)
+      }
+    }
+  ' "${file}"
+}
+
 report_tree() {
   ensure_paths_resilient
   build_find_args_pruned "${TREE_MAX_DEPTH}"
@@ -489,6 +609,207 @@ report_attachments() {
   echo "Wrote: ${out}"
 }
 
+report_broken_links() {
+  ensure_paths_resilient
+  build_find_args_pruned ""  # full depth
+
+  local out="${OUTPUT_DIR%/}/VaultMeta - Broken Links.md"
+  local tmp_broken="${OUTPUT_DIR%/}/.vaultmeta-broken-links.${BASHPID}.tsv"
+  rm -f "${tmp_broken}"
+
+  local -a all_files=()
+  local -a md_files=()
+  local abs rel base
+  local notes_scanned=0
+  local links_evaluated=0
+  local links_broken=0
+  local skipped_non_local=0
+  local source_count_with_broken=0
+
+  declare -A file_set=()
+  declare -A note_basename_set=()
+  declare -A file_basename_set=()
+  declare -A broken_sources=()
+
+  mapfile -d '' -t all_files < <(find "${FIND_ARGS[@]}" -type f -print0)
+
+  for abs in "${all_files[@]}"; do
+    rel="$(relpath "${abs}")"
+    file_set["${rel}"]=1
+    base="${rel##*/}"
+    file_basename_set["${base}"]=1
+    if [[ "${base}" == *.md ]]; then
+      note_basename_set["${base%.md}"]=1
+      md_files+=("${abs}")
+    fi
+  done
+
+  notes_scanned="${#md_files[@]}"
+
+  local source_abs source_rel source_dir
+  local kind link_text raw_target
+  local target stripped_target
+  local candidate candidate_md source_candidate source_candidate_md
+  local resolved display unresolved_form
+
+  for source_abs in "${md_files[@]}"; do
+    source_rel="$(relpath "${source_abs}")"
+    source_dir="$(dirname "${source_rel}")"
+    [[ "${source_dir}" == "." ]] && source_dir=""
+
+    while IFS=$'\t' read -r kind link_text raw_target; do
+      [[ -n "${raw_target}" ]] || continue
+
+      target="$(trim "${raw_target}")"
+      [[ -n "${target}" ]] || continue
+
+      if is_external_target "${target}"; then
+        skipped_non_local=$((skipped_non_local + 1))
+        continue
+      fi
+
+      stripped_target="$(strip_link_suffixes "${target}")"
+      stripped_target="$(trim "${stripped_target}")"
+
+      if [[ -z "${stripped_target}" ]]; then
+        skipped_non_local=$((skipped_non_local + 1))
+        continue
+      fi
+
+      links_evaluated=$((links_evaluated + 1))
+      resolved=0
+      unresolved_form="${stripped_target}"
+
+      if [[ "${kind}" == "md" ]]; then
+        if [[ "${stripped_target}" == /* ]]; then
+          candidate="$(normalize_rel_path "${stripped_target#/}")"
+        else
+          candidate="$(normalize_rel_path "${source_dir:+${source_dir}/}${stripped_target}")"
+        fi
+
+        unresolved_form="${candidate:-${stripped_target}}"
+        if [[ -n "${candidate}" && "${candidate}" != .. && "${candidate}" != ../* && -n "${file_set[${candidate}]:-}" ]]; then
+          resolved=1
+        elif [[ -n "${candidate}" && "${candidate}" != .. && "${candidate}" != ../* ]]; then
+          if ! path_has_extension "${candidate}"; then
+            candidate_md="${candidate}.md"
+            unresolved_form="${candidate_md}"
+            [[ -n "${file_set[${candidate_md}]:-}" ]] && resolved=1
+          fi
+        fi
+      else
+        if [[ "${stripped_target}" == /* ]]; then
+          candidate="$(normalize_rel_path "${stripped_target#/}")"
+          unresolved_form="${candidate:-${stripped_target}}"
+          if [[ -n "${candidate}" && "${candidate}" != .. && "${candidate}" != ../* && -n "${file_set[${candidate}]:-}" ]]; then
+            resolved=1
+          elif [[ -n "${candidate}" && "${candidate}" != .. && "${candidate}" != ../* ]]; then
+            if ! path_has_extension "${candidate}"; then
+              candidate_md="${candidate}.md"
+              unresolved_form="${candidate_md}"
+              [[ -n "${file_set[${candidate_md}]:-}" ]] && resolved=1
+            fi
+          fi
+        elif [[ "${stripped_target}" == */* || "${stripped_target}" == ./* || "${stripped_target}" == ../* ]]; then
+          if [[ "${stripped_target}" == ./* || "${stripped_target}" == ../* ]]; then
+            candidate="$(normalize_rel_path "${source_dir:+${source_dir}/}${stripped_target}")"
+          else
+            candidate="$(normalize_rel_path "${stripped_target}")"
+          fi
+
+          unresolved_form="${candidate:-${stripped_target}}"
+          if [[ -n "${candidate}" && "${candidate}" != .. && "${candidate}" != ../* && -n "${file_set[${candidate}]:-}" ]]; then
+            resolved=1
+          elif [[ -n "${candidate}" && "${candidate}" != .. && "${candidate}" != ../* ]]; then
+            if ! path_has_extension "${candidate}"; then
+              candidate_md="${candidate}.md"
+              unresolved_form="${candidate_md}"
+              [[ -n "${file_set[${candidate_md}]:-}" ]] && resolved=1
+            fi
+          fi
+        else
+          if path_has_extension "${stripped_target}"; then
+            unresolved_form="${stripped_target}"
+            if [[ -n "${file_basename_set[${stripped_target}]:-}" ]]; then
+              resolved=1
+            else
+              candidate="$(normalize_rel_path "${stripped_target}")"
+              source_candidate="$(normalize_rel_path "${source_dir:+${source_dir}/}${stripped_target}")"
+              if [[ -n "${candidate}" && -n "${file_set[${candidate}]:-}" ]]; then
+                resolved=1
+              elif [[ -n "${source_candidate}" && -n "${file_set[${source_candidate}]:-}" ]]; then
+                resolved=1
+              fi
+            fi
+          else
+            unresolved_form="${stripped_target}.md"
+            if [[ -n "${note_basename_set[${stripped_target}]:-}" ]]; then
+              resolved=1
+            else
+              candidate_md="$(normalize_rel_path "${stripped_target}.md")"
+              source_candidate_md="$(normalize_rel_path "${source_dir:+${source_dir}/}${stripped_target}.md")"
+              if [[ -n "${candidate_md}" && -n "${file_set[${candidate_md}]:-}" ]]; then
+                resolved=1
+              elif [[ -n "${source_candidate_md}" && -n "${file_set[${source_candidate_md}]:-}" ]]; then
+                resolved=1
+              fi
+            fi
+          fi
+        fi
+      fi
+
+      if [[ "${resolved}" -eq 0 ]]; then
+        links_broken=$((links_broken + 1))
+        broken_sources["${source_rel}"]=1
+        display="$(trim "${link_text}")"
+        [[ -z "${display}" ]] && display="${target}"
+        printf '%s\t%s\t%s\t%s\t%s\n' "${source_rel}" "${kind}" "${display}" "${target}" "${unresolved_form}" >> "${tmp_broken}"
+      fi
+    done < <(extract_links_from_markdown "${source_abs}")
+  done
+
+  source_count_with_broken="${#broken_sources[@]}"
+
+  {
+    write_header "VaultMeta - Broken Links"
+    echo "# 🔗 VaultMeta — Broken Links"
+    echo
+    echo "_Stable note. Overwritten each run._"
+    echo
+    echo "## Summary"
+    echo
+    echo "- Notes scanned: ${notes_scanned}"
+    echo "- Local links evaluated: ${links_evaluated}"
+    echo "- Broken local links: ${links_broken}"
+    echo "- Source notes with broken links: ${source_count_with_broken}"
+    echo "- Skipped external/anchor-only links: ${skipped_non_local}"
+    echo
+
+    echo "## Broken entries by source note"
+    echo
+
+    if [[ ! -s "${tmp_broken}" ]]; then
+      echo "_No broken local links found._"
+      echo
+    else
+      local current_source=""
+      local out_source out_kind out_display out_raw out_unresolved
+      while IFS=$'\t' read -r out_source out_kind out_display out_raw out_unresolved; do
+        if [[ "${out_source}" != "${current_source}" ]]; then
+          current_source="${out_source}"
+          echo "### \`${current_source}\`"
+          echo
+        fi
+        echo "- source note: \`$(md_inline "${out_source}")\` | link text/raw target: \`$(md_inline "${out_display}")\` (raw: \`$(md_inline "${out_raw}")\`) | unresolved target form: \`$(md_inline "${out_unresolved}")\`"
+      done < <(sort -t $'\t' -k1,1 -k5,5 "${tmp_broken}")
+      echo
+    fi
+  } > "${out}"
+
+  rm -f "${tmp_broken}"
+  echo "Wrote: ${out}"
+}
+
 ensure_termux_outputs_dir() {
   local default_dir="/storage/emulated/0/Documents/HeartloomVault/30_REFERENCE/termux-outputs"
   TERMUX_OUTPUT_DIR="${TERMUX_OUTPUT_DIR:-${default_dir}}"
@@ -719,6 +1040,7 @@ Usage:
   vaultmeta dirs                 Generate Directory Blocks report
   vaultmeta changes              Generate Recent Changes report
   vaultmeta largest              Generate Largest Files report
+  vaultmeta broken-links         Generate Broken Links report
   vaultmeta attachments           Generate Attachment Audit report
   vaultmeta termux-packages       Generate Termux packages report (writes into vault termux-outputs)
   vaultmeta status               Print resolved config and effective settings (no file writes)
@@ -737,6 +1059,7 @@ run_all() {
   report_dirs
   report_changes
   report_largest
+  report_broken_links
   report_attachments
   report_termux_packages
 }
@@ -751,6 +1074,7 @@ main() {
     dirs ) report_dirs ;;
     changes ) report_changes ;;
     largest ) report_largest ;;
+    broken-links ) report_broken_links ;;
     attachments ) report_attachments ;;
     termux-packages ) report_termux_packages ;;
     status ) cmd_status ;;
