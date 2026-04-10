@@ -479,7 +479,7 @@ report_attachments() {
     echo
     echo "| size | path |"
     echo "|---:|---|"
-    echo "${lines}"       | awk -F'	' '{print $2 "	" $3}'       | sort -nr -k1,1       | head -n "${n}"       | while IFS=$'	' read -r size path; do
+    echo "${lines}"       | awk -F'	' '{print $2 "	" $3}'       | sort -nr -k1,1       | awk -v n="${n}" 'NR<=n {print}'       | while IFS=$'	' read -r size path; do
           rel="$(relpath "$path")"
           hs="$(human_size "$size")"
           echo "| ${hs} | \`${rel}\` |"
