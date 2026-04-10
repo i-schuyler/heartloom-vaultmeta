@@ -68,6 +68,33 @@ Includes:
 
 ---
 
+## Broken-link scan contract anchor (required before sponsor-gated paid alpha)
+
+Status:
+- Required free-core trust/reporting contract before sponsor-gated paid alpha.
+- Contract-only in this docs slice; this section does not claim current implementation.
+
+Exact report filename:
+- `VaultMeta - Broken Links.md`
+
+First-pass in-scope link resolution:
+- Obsidian wiki links to local notes/files.
+- Local Markdown links to vault-relative or note-relative local targets.
+- Broken means an unresolved local target within the vault.
+
+First-pass exclusions:
+- External URLs.
+- Heading or block-anchor validation.
+- Orphan-notes reporting.
+- Broad attachment integrity beyond missing local targets.
+
+Minimum output contract:
+- Summary counts at top of report.
+- Broken-link entries grouped by source note.
+- Each broken entry includes source note, link text/raw target, and unresolved target form.
+
+---
+
 ## Report headers
 
 Each report includes:
