@@ -76,6 +76,14 @@ Each report includes:
 
 ---
 
+## Privacy and redaction direction
+
+- `termux_packages.md` may include local environment and configuration identity details.
+- Before sharing this report outside your trusted local context (including paid packaging/support contexts), redact sensitive local identifiers and config details.
+- Treat unredacted `termux_packages.md` output as a local diagnostic artifact.
+
+---
+
 ## Stability contract
 
 - Notes are **always overwritten** on each run.

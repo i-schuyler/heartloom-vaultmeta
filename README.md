@@ -6,6 +6,9 @@ VaultMeta is a small, public-friendly toolkit that makes an Obsidian vault **leg
 
 **About:** Stable and visible Markdown reports that make your Obsidian vault legible. (HeartloomOS toolkit).
 
+Docs index (canonical):
+- `docs/README.md`
+
 ## What it does (Phase 0 + Phase 1)
 
 Generates stable notes (overwritten each run):
@@ -64,6 +67,12 @@ Docs:
 
 Docs:
 - `docs/REPORTS.md`
+
+## Versioning + scope posture
+
+Docs:
+- `docs/VERSIONING.md`
+- `docs/README.md`
 
 ## Safety + integrity rules
 
