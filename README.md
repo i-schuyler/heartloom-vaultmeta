@@ -4,14 +4,21 @@ VaultMeta is a small, public-friendly toolkit that makes an Obsidian vault **leg
 
 **About:** Stable and visible Markdown reports that make your Obsidian vault legible. (HeartloomOS toolkit).
 
-## What it does (Phase 0)
+## What it does (Phase 0 + Phase 1)
 
 Generates stable notes (overwritten each run):
 
+**Phase 0**
 - `VaultMeta - File Tree.md`
 - `VaultMeta - Directory Blocks.md`
 
-Default output directory inside the vault (if `OUTPUT_DIR` is blank):
+**Phase 1**
+- `VaultMeta - Recent Changes.md`
+- `VaultMeta - Largest Files.md`
+- `VaultMeta - Attachment Audit.md`
+- Termux report: `termux_packages.md` (written to your vault’s termux outputs directory)
+
+Default VaultMeta output directory (if `OUTPUT_DIR` is blank):
 
 - `$VAULT_ROOT/30_REFERENCE/vaultmeta/`
 
@@ -19,9 +26,13 @@ Default output directory inside the vault (if `OUTPUT_DIR` is blank):
 
 Single entrypoint with subcommands:
 
-- `vaultmeta` → runs both reports
+- `vaultmeta` → runs all Phase 0 + Phase 1 reports
 - `vaultmeta tree` → file tree report
-- `vaultmeta dirs` → directory blocks report
+- `vaultmeta dirs` → directory blocks report (grouped with headings)
+- `vaultmeta changes` → recent-change digest report
+- `vaultmeta largest` → largest files report
+- `vaultmeta attachments` → attachment audit report
+- `vaultmeta termux-packages` → termux packages report (writes into vault termux-outputs)
 - `vaultmeta status` → prints resolved config and effective settings (no file writes)
 - `vaultmeta help` → usage
 
@@ -57,16 +68,3 @@ Docs:
 - Stable notes overwrite on each run (no accumulating files).
 - Path resilience: if expected paths are missing, you will be prompted for updated paths and the tool will continue.
 - Uninstall never deletes your vault content.
-
-## Screenshots
-
-- Screenshots taken on Obsidian Mobile; UI may vary by theme/plugins.
-- Shown content is an example; your vault structure will differ.
-
-![VaultMeta - Settings Summary (Obsidian Mobile)](docs/screenshots/obsidian-mobile-settings-summary.png)
-
-![VaultMeta - Directory Blocks (Obsidian Mobile)](docs/screenshots/obsidian-mobile-directory-blocks.png)
-
-![VaultMeta - File Tree (Obsidian Mobile)](docs/screenshots/obsidian-mobile-file-tree.png)
-
-![VaultMeta - Termux Shortcut (Android)](docs/screenshots/run-vaultmeta-shortcut.png)

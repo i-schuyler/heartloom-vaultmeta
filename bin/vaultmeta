@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
+# vaultmeta
 set -euo pipefail
 
 SCRIPT_NAME="vaultmeta"
-VERSION="0.0.2-phase0"
+VERSION="0.1.0-phase1-dev"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -38,7 +39,8 @@ prompt() {
 csv_to_lines() {
   local csv="${1:-}"
   [[ -z "$csv" ]] && return 0
-  echo "$csv" | tr ',' '\n' | while IFS= read -r line; do
+  echo "$csv" | tr ',' '
+' | while IFS= read -r line; do
     line="$(trim "$line")"
     [[ -n "$line" ]] && echo "$line"
   done
@@ -87,6 +89,12 @@ Create one via: ./install.sh install"
   OUTPUT_DIR="${OUTPUT_DIR:-}"
   VAULT_ROOT="${VAULT_ROOT:-}"
 
+  # Phase 1 settings (with safe defaults)
+  CHANGES_HOURS="${CHANGES_HOURS:-24}"
+  CHANGES_DAYS="${CHANGES_DAYS:-7}"
+  LARGEST_TOP_N="${LARGEST_TOP_N:-50}"
+  ATTACHMENT_TOP_N="${ATTACHMENT_TOP_N:-50}"
+
   RESOLVED_CONFIG_FILE="$cfg"
 }
 
@@ -119,6 +127,10 @@ settings_summary() {
 - TREE_MAX_DEPTH: ${TREE_MAX_DEPTH}
 - FOLLOW_SYMLINKS: ${FOLLOW_SYMLINKS}
 - INCLUDE_FILES: ${INCLUDE_FILES}
+- CHANGES_HOURS: ${CHANGES_HOURS}
+- CHANGES_DAYS: ${CHANGES_DAYS}
+- LARGEST_TOP_N: ${LARGEST_TOP_N}
+- ATTACHMENT_TOP_N: ${ATTACHMENT_TOP_N}
 EOF
 }
 
@@ -142,7 +154,10 @@ $(settings_summary)
 EOF
 }
 
-build_find_args() {
+# Build find args for traversal with pruning rules, optionally with maxdepth.
+# Usage: build_find_args_pruned <maxdepth or empty>
+build_find_args_pruned() {
+  local maxdepth="${1:-}"
   FIND_ARGS=()
 
   if [[ "${FOLLOW_SYMLINKS}" == "1" ]]; then
@@ -150,7 +165,10 @@ build_find_args() {
   fi
 
   FIND_ARGS+=("${VAULT_ROOT}")
-  FIND_ARGS+=("-maxdepth" "${TREE_MAX_DEPTH}")
+
+  if [[ -n "${maxdepth}" ]]; then
+    FIND_ARGS+=("-maxdepth" "${maxdepth}")
+  fi
 
   if [[ "${INCLUDE_HIDDEN}" != "1" ]]; then
     FIND_ARGS+=("(" "-path" "*/.*" ")" "-prune" "-o")
@@ -165,17 +183,51 @@ build_find_args() {
   while IFS= read -r g; do
     FIND_ARGS+=("(" "-name" "${g}" ")" "-prune" "-o")
   done < <(csv_to_lines "${EXCLUDE_GLOBS}")
+}
 
-  if [[ "${INCLUDE_FILES}" == "1" ]]; then
-    FIND_ARGS+=("-print")
-  else
-    FIND_ARGS+=("-type" "d" "-print")
+# Emit: epoch<TAB>size<TAB>abs_path
+stat_lines_from_find0() {
+  # Reads NUL-delimited file list on stdin.
+  # GNU stat (coreutils): %Y = epoch, %s = size, %n = filename
+  xargs -0 stat -c '%Y	%s	%n' 2>/dev/null || true
+}
+
+epoch_to_human() {
+  local epoch="${1:-}"
+  if date -d "@${epoch}" "+%Y-%m-%d %H:%M" >/dev/null 2>&1; then
+    date -d "@${epoch}" "+%Y-%m-%d %H:%M"
+    return 0
   fi
+  # Fallback
+  date "+%Y-%m-%d %H:%M"
+}
+
+human_size() {
+  # bytes -> rough human readable
+  local b="${1:-0}"
+  awk -v b="$b" 'function hr(x){
+    s="B KB MB GB TB"; split(s,a," ");
+    i=1;
+    while (x>=1024 && i<5){x/=1024;i++}
+    return sprintf("%.2f %s", x, a[i])
+  } BEGIN{print hr(b)}'
+}
+
+relpath() {
+  local p="$1"
+  echo "${p#${VAULT_ROOT%/}/}"
+}
+
+topdir_of_relpath() {
+  local r="$1"
+  local top="${r%%/*}"
+  [[ "${top}" == "${r}" ]] && top="(root)"
+  echo "${top}"
 }
 
 report_tree() {
   ensure_paths_resilient
-  build_find_args
+  build_find_args_pruned "${TREE_MAX_DEPTH}"
 
   local out="${OUTPUT_DIR%/}/VaultMeta - File Tree.md"
   {
@@ -187,30 +239,35 @@ report_tree() {
     echo "## Tree"
     echo
 
-    find "${FIND_ARGS[@]}" \
-      | sed "s#^${VAULT_ROOT%/}/##" \
-      | sed 's#^$#.#' \
-      | sort \
-      | awk -F'/' '
-        {
-          depth = NF - 1
-          indent = ""
-          for (i=0; i<depth; i++) indent = indent "  "
-          name = $NF
-          if ($0 == ".") { name="(vault root)"; indent="" }
-          print indent "- " name
-        }'
+    local include_files="${INCLUDE_FILES}"
+    if [[ "${include_files}" == "1" ]]; then
+      find "${FIND_ARGS[@]}" -print         | sed "s#^${VAULT_ROOT%/}/##"         | sed 's#^$#.#'         | sort         | awk -F'/' '
+          {
+            depth = NF - 1
+            indent = ""
+            for (i=0; i<depth; i++) indent = indent "  "
+            name = $NF
+            if ($0 == ".") { name="(vault root)"; indent="" }
+            print indent "- " name
+          }'
+    else
+      find "${FIND_ARGS[@]}" -type d -print         | sed "s#^${VAULT_ROOT%/}/##"         | sed 's#^$#.#'         | sort         | awk -F'/' '
+          {
+            depth = NF - 1
+            indent = ""
+            for (i=0; i<depth; i++) indent = indent "  "
+            name = $NF
+            if ($0 == ".") { name="(vault root)"; indent="" }
+            print indent "- " name
+          }'
+    fi
   } > "${out}"
   echo "Wrote: ${out}"
 }
 
 report_dirs() {
   ensure_paths_resilient
-
-  local old_include_files="${INCLUDE_FILES}"
-  INCLUDE_FILES="0"
-  build_find_args
-  INCLUDE_FILES="${old_include_files}"
+  build_find_args_pruned ""  # full depth for directory blocks
 
   local out="${OUTPUT_DIR%/}/VaultMeta - Directory Blocks.md"
   {
@@ -219,24 +276,430 @@ report_dirs() {
     echo
     echo "_Stable note. Overwritten each run._"
     echo
-    echo "## Directories"
+    echo "## Vault Root"
     echo
-
     echo '```bash'
     echo "${VAULT_ROOT}"
     echo '```'
     echo
 
-    find "${FIND_ARGS[@]}" -type d \
-      | sort \
-      | while IFS= read -r dir; do
-          [[ "${dir%/}" == "${VAULT_ROOT%/}" ]] && continue
-          echo '```bash'
-          echo "${dir}"
+    # Collect directories (absolute), exclude VAULT_ROOT itself
+    mapfile -t dirs < <(find "${FIND_ARGS[@]}" -type d -print | sort | grep -v "^${VAULT_ROOT%/}$" || true)
+
+    local current_top=""
+    local d rel top
+
+    for d in "${dirs[@]}"; do
+      rel="$(relpath "$d")"
+      top="$(topdir_of_relpath "$rel")"
+      if [[ "${top}" != "${current_top}" ]]; then
+        current_top="${top}"
+        echo "## ${current_top}"
+        echo
+      fi
+
+      echo '```bash'
+      echo "${d}"
+      echo '```'
+      echo
+    done
+  } > "${out}"
+  echo "Wrote: ${out}"
+}
+
+report_changes() {
+  ensure_paths_resilient
+  build_find_args_pruned ""  # full depth
+  local out="${OUTPUT_DIR%/}/VaultMeta - Recent Changes.md"
+
+  # Hours window uses -mmin; Days uses -mtime.
+  local hours="${CHANGES_HOURS}"
+  local days="${CHANGES_DAYS}"
+
+  {
+    write_header "VaultMeta - Recent Changes"
+    echo "# 🕒 VaultMeta — Recent Changes"
+    echo
+    echo "_Stable note. Overwritten each run._"
+    echo
+    echo "## Summary"
+    echo
+    echo "- Window A: last ${hours} hours"
+    echo "- Window B: last ${days} days"
+    echo
+
+    for mode in "hours" "days"; do
+      local label find_time_args
+      if [[ "${mode}" == "hours" ]]; then
+        label="Last ${hours} hours"
+        # -mmin -1440 for 24h; use integer minutes
+        local mins=$(( hours * 60 ))
+        find_time_args=( -type f -mmin "-${mins}" )
+      else
+        label="Last ${days} days"
+        find_time_args=( -type f -mtime "-${days}" )
+      fi
+
+      echo "## ${label}"
+      echo
+
+      # Produce: epoch size path
+      local lines
+      lines="$(find "${FIND_ARGS[@]}" "${find_time_args[@]}" -print0 | stat_lines_from_find0)"
+
+      if [[ -z "${lines}" ]]; then
+        echo "_No matching files._"
+        echo
+        continue
+      fi
+
+      # Sort by epoch desc
+      # shellcheck disable=SC2005
+      local sorted
+      sorted="$(echo "${lines}" | sort -nr -k1,1)"
+
+      # Count
+      local count
+      count="$(echo "${sorted}" | wc -l | tr -d ' ')"
+      echo "- Files: ${count}"
+      echo
+
+      # Group by top-level dir
+      local current_top=""
+      echo "${sorted}" | while IFS=$'	' read -r epoch size path; do
+        local rel top ts hs
+        rel="$(relpath "$path")"
+        top="$(topdir_of_relpath "$rel")"
+        if [[ "${top}" != "${current_top}" ]]; then
+          current_top="${top}"
+          echo "### ${current_top}"
+          echo
+        fi
+        ts="$(epoch_to_human "${epoch}")"
+        hs="$(human_size "${size}")"
+        echo "- ${ts} — \`${rel}\` (${hs})"
+      done
+      echo
+    done
+  } > "${out}"
+  echo "Wrote: ${out}"
+}
+
+report_largest() {
+  ensure_paths_resilient
+  build_find_args_pruned ""  # full depth
+  local out="${OUTPUT_DIR%/}/VaultMeta - Largest Files.md"
+  local n="${LARGEST_TOP_N}"
+
+  {
+    write_header "VaultMeta - Largest Files"
+    echo "# 🧱 VaultMeta — Largest Files"
+    echo
+    echo "_Stable note. Overwritten each run._"
+    echo
+    echo "## Top ${n}"
+    echo
+    echo "| size | path |"
+    echo "|---:|---|"
+
+    local lines
+    lines="$(find "${FIND_ARGS[@]}" -type f -print0 | stat_lines_from_find0)"
+    if [[ -z "${lines}" ]]; then
+      echo "| 0 B | _No files found_ |"
+      echo
+      exit 0
+    fi
+
+    echo "${lines}"       | awk -F'	' '{print $2 "	" $3}'       | sort -nr -k1,1       | head -n "${n}"       | while IFS=$'	' read -r size path; do
+          local rel hs
+          rel="$(relpath "$path")"
+          hs="$(human_size "$size")"
+          echo "| ${hs} | \`${rel}\` |"
+        done
+    echo
+  } > "${out}"
+  echo "Wrote: ${out}"
+}
+
+report_attachments() {
+  ensure_paths_resilient
+  build_find_args_pruned ""  # full depth
+  local out="${OUTPUT_DIR%/}/VaultMeta - Attachment Audit.md"
+  local n="${ATTACHMENT_TOP_N}"
+
+  {
+    write_header "VaultMeta - Attachment Audit"
+    echo "# 📎 VaultMeta — Attachment Audit"
+    echo
+    echo "_Stable note. Overwritten each run._"
+    echo
+    echo "## Summary"
+    echo
+    echo "- Definition: non-`.md` files under VAULT_ROOT"
+    echo
+
+    local lines
+    lines="$(find "${FIND_ARGS[@]}" -type f ! -name "*.md" -print0 | stat_lines_from_find0)"
+    if [[ -z "${lines}" ]]; then
+      echo "_No non-markdown files found._"
+      echo
+      exit 0
+    fi
+
+    local count
+    count="$(echo "${lines}" | wc -l | tr -d ' ')"
+    echo "- Files: ${count}"
+    echo
+
+    echo "## By extension"
+    echo
+    echo "| ext | count | total size |"
+    echo "|---|---:|---:|"
+    echo "${lines}"       | awk -F'	' '
+        function lower(s){ for(i=1;i<=length(s);i++){c=substr(s,i,1); if(c>="A"&&c<="Z") c=tolower(c); out=out c} r=out; out=""; return r }
+        function ext(p){
+          n=split(p,a,"/");
+          f=a[n];
+          if (index(f,".")==0) return "(none)";
+          e=substr(f, match(f, /\.[^\.]*$/)+1);
+          return lower(e);
+        }
+        { e=ext($3); cnt[e]++; sum[e]+=$2 }
+        END{
+          for (k in cnt){
+            printf "%s	%d	%d
+", k, cnt[k], sum[k]
+          }
+        }'       | sort -nr -k2,2       | while IFS=$'	' read -r e c s; do
+          hs="$(human_size "$s")"
+          echo "| ${e} | ${c} | ${hs} |"
+        done
+    echo
+
+    echo "## Largest ${n} attachments"
+    echo
+    echo "| size | path |"
+    echo "|---:|---|"
+    echo "${lines}"       | awk -F'	' '{print $2 "	" $3}'       | sort -nr -k1,1       | head -n "${n}"       | while IFS=$'	' read -r size path; do
+          rel="$(relpath "$path")"
+          hs="$(human_size "$size")"
+          echo "| ${hs} | \`${rel}\` |"
+        done
+    echo
+  } > "${out}"
+  echo "Wrote: ${out}"
+}
+
+ensure_termux_outputs_dir() {
+  local default_dir="/storage/emulated/0/Documents/HeartloomVault/30_REFERENCE/termux-outputs"
+  TERMUX_OUTPUT_DIR="${TERMUX_OUTPUT_DIR:-${default_dir}}"
+
+  if [[ -d "${TERMUX_OUTPUT_DIR}" ]]; then
+    return 0
+  fi
+
+  echo "Output directory not found:"
+  echo "  ${TERMUX_OUTPUT_DIR}"
+  echo
+  TERMUX_OUTPUT_DIR="$(prompt "Enter a new output directory path, or press Enter to create/use the default:" "${default_dir}")"
+  mkdir -p "${TERMUX_OUTPUT_DIR}" || die "Failed to create output directory: ${TERMUX_OUTPUT_DIR}"
+}
+
+report_termux_packages() {
+  # Writes into canonical Termux outputs dir (within the vault).
+  ensure_termux_outputs_dir
+
+  local out="${TERMUX_OUTPUT_DIR%/}/termux_packages.md"
+
+  {
+    echo "---"
+    echo "type: vaultmeta-report"
+    echo "title: termux-packages"
+    echo "generated: $(now_iso)"
+    echo "version: ${VERSION}"
+    echo "---"
+    echo
+    echo "# 📦 Termux Packages"
+    echo
+    echo "## Device basics"
+    echo
+    echo "- uname: \`$(uname -a 2>/dev/null || echo "unknown")\`"
+    if command -v termux-info >/dev/null 2>&1; then
+      echo
+      echo "### termux-info"
+      echo
+      echo '```'
+      termux-info 2>/dev/null || true
+      echo '```'
+    fi
+
+    echo
+    echo "### Storage sanity"
+    echo
+    echo "- /storage/emulated/0 exists: $( [[ -d /storage/emulated/0 ]] && echo "yes" || echo "no" )"
+    echo "- \$HOME/storage exists: $( [[ -d "${HOME}/storage" ]] && echo "yes" || echo "no" )"
+    echo
+
+    echo "## Summary"
+    echo
+    local pkg_lines
+    if command -v dpkg-query >/dev/null 2>&1; then
+      pkg_lines="$(dpkg-query -W -f='${Package}	${Version}
+' 2>/dev/null || true)"
+    else
+      pkg_lines=""
+    fi
+    local pkg_count
+    pkg_count="$(echo "${pkg_lines}" | sed '/^$/d' | wc -l | tr -d ' ')"
+    echo "- Packages (dpkg-query): ${pkg_count}"
+    echo
+
+    echo "## Packages (dpkg-query)"
+    echo
+    echo "| package | version |"
+    echo "|---|---|"
+    if [[ -n "${pkg_lines}" ]]; then
+      echo "${pkg_lines}" | sed '/^$/d' | while IFS=$'	' read -r p v; do
+        echo "| ${p} | ${v} |"
+      done
+    else
+      echo "| _dpkg-query not available_ |  |"
+    fi
+    echo
+
+    if command -v pkg >/dev/null 2>&1; then
+      echo "## Packages (pkg list-installed)"
+      echo
+      echo '```'
+      pkg list-installed 2>/dev/null || true
+      echo '```'
+      echo
+    fi
+
+    echo "## Repo + config anchors"
+    echo
+    if command -v git >/dev/null 2>&1; then
+      local gname gemail
+      gname="$(git config --global user.name 2>/dev/null || true)"
+      gemail="$(git config --global user.email 2>/dev/null || true)"
+      [[ -n "${gname}" ]] && echo "- git user.name: \`${gname}\`"
+      [[ -n "${gemail}" ]] && echo "- git user.email: \`${gemail}\`"
+      [[ -z "${gname}${gemail}" ]] && echo "- git identity: _(not set)_"
+    else
+      echo "- git: _(not installed)_"
+    fi
+    echo
+    echo "### Important dotfiles present (names only)"
+    echo
+    echo "- ~/.gitconfig: $( [[ -f "${HOME}/.gitconfig" ]] && echo "yes" || echo "no" )"
+    echo "- ~/.ssh/: $( [[ -d "${HOME}/.ssh" ]] && echo "yes" || echo "no" )"
+    echo "- ~/.config/: $( [[ -d "${HOME}/.config" ]] && echo "yes" || echo "no" )"
+    echo "- ~/.shortcuts/: $( [[ -d "${HOME}/.shortcuts" ]] && echo "yes" || echo "no" )"
+    echo
+
+    echo "## Apt sources + held packages"
+    echo
+    if [[ -n "${PREFIX:-}" ]]; then
+      local sources="${PREFIX}/etc/apt/sources.list"
+      local sourcesd="${PREFIX}/etc/apt/sources.list.d"
+      echo "### sources.list"
+      echo
+      if [[ -f "${sources}" ]]; then
+        echo '```'
+        echo "# ${sources}"
+        cat "${sources}" 2>/dev/null || true
+        echo '```'
+      else
+        echo "_Missing: ${sources}_"
+      fi
+      echo
+      echo "### sources.list.d"
+      echo
+      if [[ -d "${sourcesd}" ]]; then
+        for f in "${sourcesd}"/*; do
+          [[ -f "${f}" ]] || continue
+          echo '```'
+          echo "# ${f}"
+          cat "${f}" 2>/dev/null || true
           echo '```'
           echo
         done
+      else
+        echo "_Missing: ${sourcesd}_"
+        echo
+      fi
+    else
+      echo "_PREFIX not set; cannot locate apt sources._"
+      echo
+    fi
+
+    echo "### Held packages"
+    echo
+    if command -v apt-mark >/dev/null 2>&1; then
+      echo '```'
+      apt-mark showhold 2>/dev/null || true
+      echo '```'
+    else
+      # dpkg hold fallback
+      if command -v dpkg >/dev/null 2>&1; then
+        echo '```'
+        dpkg --get-selections 2>/dev/null | awk '$2=="hold"{print $1}' || true
+        echo '```'
+      else
+        echo "_No apt-mark/dpkg available._"
+      fi
+    fi
+    echo
+
+    echo "## Language ecosystems (optional sections)"
+    echo
+
+    if command -v python >/dev/null 2>&1; then
+      echo "### Python"
+      echo
+      echo "- python: \`$(python --version 2>&1 | tr -d '')\`"
+      if command -v pip >/dev/null 2>&1; then
+        echo
+        echo "#### pip list"
+        echo
+        echo '```'
+        pip list 2>/dev/null || true
+        echo '```'
+      fi
+      echo
+    fi
+
+    if command -v node >/dev/null 2>&1; then
+      echo "### Node"
+      echo
+      echo "- node: \`$(node --version 2>/dev/null || true)\`"
+      if command -v npm >/dev/null 2>&1; then
+        echo
+        echo "#### npm -g list --depth=0"
+        echo
+        echo '```'
+        npm -g list --depth=0 2>/dev/null || true
+        echo '```'
+      fi
+      echo
+    fi
+
+    if command -v go >/dev/null 2>&1; then
+      echo "### Go"
+      echo
+      echo "- go: \`$(go version 2>/dev/null || true)\`"
+      echo
+    fi
+
+    if command -v rustc >/dev/null 2>&1; then
+      echo "### Rust"
+      echo
+      echo "- rustc: \`$(rustc --version 2>/dev/null || true)\`"
+      echo
+    fi
+
   } > "${out}"
+
   echo "Wrote: ${out}"
 }
 
@@ -252,11 +715,15 @@ usage() {
 ${SCRIPT_NAME} ${VERSION}
 
 Usage:
-  vaultmeta                Run all reports (tree + dirs)
-  vaultmeta tree           Generate File Tree report
-  vaultmeta dirs           Generate Directory Blocks report
-  vaultmeta status         Print resolved config and effective settings
-  vaultmeta help           Show this help
+  vaultmeta                      Run all reports (Phase 0 + Phase 1)
+  vaultmeta tree                 Generate File Tree report
+  vaultmeta dirs                 Generate Directory Blocks report
+  vaultmeta changes              Generate Recent Changes report
+  vaultmeta largest              Generate Largest Files report
+  vaultmeta attachments           Generate Attachment Audit report
+  vaultmeta termux-packages       Generate Termux packages report (writes into vault termux-outputs)
+  vaultmeta status               Print resolved config and effective settings (no file writes)
+  vaultmeta help                 Show this help
 
 Config search order:
   1) VAULTMETA_CONFIG (env override)
@@ -266,14 +733,27 @@ Config search order:
 EOF
 }
 
+run_all() {
+  report_tree
+  report_dirs
+  report_changes
+  report_largest
+  report_attachments
+  report_termux_packages
+}
+
 main() {
   local cmd="${1:-}"
   load_config
 
   case "${cmd}" in
-    "" ) report_tree; report_dirs ;;
+    "" ) run_all ;;
     tree ) report_tree ;;
     dirs ) report_dirs ;;
+    changes ) report_changes ;;
+    largest ) report_largest ;;
+    attachments ) report_attachments ;;
+    termux-packages ) report_termux_packages ;;
     status ) cmd_status ;;
     help|-h|--help ) usage ;;
     * ) echo "Unknown command: ${cmd}" >&2; usage; exit 2 ;;

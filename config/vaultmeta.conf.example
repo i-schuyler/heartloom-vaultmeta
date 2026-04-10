@@ -1,5 +1,5 @@
 # vaultmeta.conf.example
-# Copy to config/vaultmeta.conf or use ./install.sh install
+# Copy to ${XDG_CONFIG_HOME:-$HOME/.config}/vaultmeta/vaultmeta.conf or use ./install.sh install
 
 # Required (will prompt if missing)
 VAULT_ROOT=/storage/emulated/0/Documents/HeartloomVault
@@ -15,5 +15,14 @@ EXCLUDE_GLOBS=*.log,*.tmp,*.bak
 TREE_MAX_DEPTH=6
 FOLLOW_SYMLINKS=0         # 1 to use find -L
 INCLUDE_FILES=1           # 1 include files in tree; 0 directories only
+
+# Phase 1 reports
+CHANGES_HOURS=24          # Recent Changes "window A"
+CHANGES_DAYS=7            # Recent Changes "window B"
+LARGEST_TOP_N=50          # Top N largest files
+ATTACHMENT_TOP_N=50       # Top N largest attachments
+
+# Termux output report (optional override)
+TERMUX_OUTPUT_DIR=/storage/emulated/0/Documents/HeartloomVault/30_REFERENCE/termux-outputs
 
 # vaultmeta.conf.example EOF
