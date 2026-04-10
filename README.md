@@ -74,6 +74,13 @@ Docs:
 - `docs/VERSIONING.md`
 - `docs/README.md`
 
+## Free-core boundary for paid alpha
+
+- Free core remains **visibility + reporting**.
+- Broken-link scan is a required free-core readiness gate before sponsor-gated paid alpha (not declared shipped in this README).
+- Orphan-notes reporting remains flexible and may land after paid alpha starts.
+- Paid alpha is additive: comfort, automation, polish, and scale, without taking away free-core trust features.
+
 ## Safety + integrity rules
 
 - Stable notes overwrite on each run (no accumulating files).
