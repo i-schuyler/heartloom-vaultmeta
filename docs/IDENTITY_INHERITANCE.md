@@ -10,9 +10,9 @@ This note keeps VaultMeta’s inheritance posture explicit so the repo can stay 
 
 ## Authority Boundaries
 
-### Upstream: `heartloom-source`
+### Upstream: [`heartloom-source`](https://github.com/i-schuyler/heartloom-source)
 
-Use `heartloom-source` as authority for:
+Use [`heartloom-source`](https://github.com/i-schuyler/heartloom-source) as authority for:
 
 - Heartloom meaning
 - Heartloom law
@@ -21,9 +21,9 @@ Use `heartloom-source` as authority for:
 
 If a proposed VaultMeta change appears to redefine those areas rather than implement local tooling, stop and route upstream.
 
-### Identity layer: `heartloom-identity`
+### Identity layer: [`heartloom-identity`](https://github.com/i-schuyler/heartloom-identity)
 
-Use `heartloom-identity` as authority for:
+Use [`heartloom-identity`](https://github.com/i-schuyler/heartloom-identity) as authority for:
 
 - downstream governance posture
 - translation and inheritance guidance
@@ -31,7 +31,7 @@ Use `heartloom-identity` as authority for:
 - ecosystem maps and pack/export context
 - cross-repo coherence questions
 
-VaultMeta inherits its downstream posture from `heartloom-identity` by adopting these distinctions, not by importing a heavy governance framework.
+VaultMeta inherits its downstream posture from [`heartloom-identity`](https://github.com/i-schuyler/heartloom-identity) by adopting these distinctions, not by importing a heavy governance framework.
 
 ### Local repo: `heartloom-vaultmeta`
 
@@ -106,8 +106,8 @@ Repo canon lives in committed repository docs. Generated notes live in the user 
 
 ## Change Routing Rule
 
-- Changes to Heartloom meaning, law, identity, or deeper architecture → route to `heartloom-source`.
-- Changes to downstream governance or cross-repo inheritance posture → route to `heartloom-identity`.
+- Changes to Heartloom meaning, law, identity, or deeper architecture → route to [`heartloom-source`](https://github.com/i-schuyler/heartloom-source).
+- Changes to downstream governance or cross-repo inheritance posture → route to [`heartloom-identity`](https://github.com/i-schuyler/heartloom-identity).
 - Changes to VaultMeta tool behavior, install/config/output contracts, or repo-local docs → handle in `heartloom-vaultmeta`.
 
 ## Practical Posture
