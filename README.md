@@ -2,7 +2,7 @@
 
 VaultMeta is a small, public-friendly toolkit that makes an Obsidian vault **legible to itself** by generating **stable, overwrite-on-run** Markdown “vault visibility” notes.
 
-`heartloom-vaultmeta` is a focused downstream Heartloom toolkit: it follows `heartloom-identity` for governance/inheritance posture and points to `heartloom-source` for upstream meaning, law, identity, and deeper architecture. See `docs/IDENTITY_INHERITANCE.md`.
+`heartloom-vaultmeta` is a focused downstream Heartloom toolkit: it follows [`heartloom-identity`](https://github.com/i-schuyler/heartloom-identity) for governance/inheritance posture and points to [`heartloom-source`](https://github.com/i-schuyler/heartloom-source) for upstream meaning, law, identity, and deeper architecture. See `docs/IDENTITY_INHERITANCE.md`.
 
 **About:** Stable and visible Markdown reports that make your Obsidian vault legible. (HeartloomOS toolkit).
 
