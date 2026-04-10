@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SCRIPT_NAME="vaultmeta"
-VERSION="0.1.0-phase1-dev"
+VERSION="0.1.0-dev"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -435,7 +435,7 @@ report_attachments() {
     echo
     echo "## Summary"
     echo
-    echo "- Definition: non-`.md` files under VAULT_ROOT"
+    echo '- Definition: non-`.md` files under VAULT_ROOT'
     echo
 
     local lines
@@ -467,8 +467,7 @@ report_attachments() {
         { e=ext($3); cnt[e]++; sum[e]+=$2 }
         END{
           for (k in cnt){
-            printf "%s	%d	%d
-", k, cnt[k], sum[k]
+            printf "%s\t%d\t%d\n", k, cnt[k], sum[k]
           }
         }'       | sort -nr -k2,2       | while IFS=$'	' read -r e c s; do
           hs="$(human_size "$s")"
